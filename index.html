@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Commander Night</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <style>
+    body { background-color: #1e1e1e; }
+    h1 { cursor: pointer; user-select: none; }
+    h1:hover { color: #bbb; }
+    .drop-zone { position: relative; border: 2px dashed #495057; border-radius: 6px; padding: 1.25rem; text-align: center; cursor: pointer; transition: border-color .2s; background-color: #1e1e1e; }
+    .drop-zone:hover { border-color: #0d6efd; }
+    .drop-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .img-preview { max-width: 100%; max-height: 100px; display: none; margin-top: 8px; border-radius: 4px; }
+    .pl-input { width: 56px; text-align: center; }
+    .card { --bs-card-bg: #161616; --bs-card-border-color: #333; }
+    .form-control { background-color: #1e1e1e !important; border-color: #333 !important; color: #e8e8e8 !important; }
+    .s-active { color: #fff; }
+    .s-out { color: #666; }
+    .rank-bronze { color: #cd7f32; font-weight: 700; }
+  </style>
+</head>
+<body class="p-4">
+
+<h1 class="text-center fw-bold mb-4" onclick="location.reload()" title="Click to restart">Commander Night</h1>
+<p class="text-center fw-bold mb-4" title="Click to visit GitHub"><a href="https://github.com/HerobaneNair/CommanderNight" class="text-decoration-none text-reset">Made by Sriram Nair</a></p>
+
+<div class="row g-3 mb-3" id="ocr-section">
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <h6 class="text-uppercase text-secondary fw-semibold mb-3 small">First Name Screenshot</h6>
+        <div class="drop-zone mb-2" id="first-drop">
+          <input type="file" id="first-file" accept="image/*">
+          <span class="text-secondary small" id="first-drop-label">Click or drag an image here</span>
+          <img id="first-preview" class="img-preview d-block mx-auto">
+        </div>
+        <div class="d-flex gap-2 mb-2">
+          <button id="first-paste-btn" class="btn btn-secondary btn-sm" onclick="triggerPaste('first')">Paste Image</button>
+          <button id="first-process-btn" class="btn btn-primary btn-sm" disabled>Process First Names</button>
+        </div>
+        <div id="first-status" class="small mb-1"></div>
+        <textarea id="first-textarea" class="form-control form-control-sm" rows="7"
+          placeholder="Names appear here after processing. You can also type or edit manually."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <h6 class="text-uppercase text-secondary fw-semibold mb-3 small">Last Name Screenshot</h6>
+        <div class="drop-zone mb-2" id="last-drop">
+          <input type="file" id="last-file" accept="image/*">
+          <span class="text-secondary small" id="last-drop-label">Click or drag an image here</span>
+          <img id="last-preview" class="img-preview d-block mx-auto">
+        </div>
+        <div class="d-flex gap-2 mb-2">
+          <button id="last-paste-btn" class="btn btn-secondary btn-sm" onclick="triggerPaste('last')">Paste Image</button>
+          <button id="last-process-btn" class="btn btn-primary btn-sm" disabled>Process Last Names</button>
+        </div>
+        <div id="last-status" class="small mb-1"></div>
+        <textarea id="last-textarea" class="form-control form-control-sm" rows="7"
+          placeholder="Names appear here after processing. You can also type or edit manually."></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3" id="combine-section">
+  <div class="card-body">
+    <h6 class="text-uppercase text-secondary fw-semibold mb-3 small">Combined Names</h6>
+    <div class="d-flex align-items-center gap-3 flex-wrap mb-3">
+      <button id="combine-btn" class="btn btn-primary btn-sm" disabled>Combine Names</button>
+      <span class="text-secondary small" id="combine-badge"></span>
+    </div>
+    <div id="combined-names-display" class="d-flex flex-wrap gap-2 mb-3" style="max-height:160px;overflow-y:auto;"></div>
+    <button id="start-btn" class="btn btn-success d-none">Generate Round 1</button>
+  </div>
+</div>
+
+<div id="tournament-section" class="d-none">
+  <p class="text-secondary small mb-3">Enter placement for each player in their match (1 = First Place | Enter -1 if the player left)</p>
+  <div id="rounds-container"></div>
+
+  <div class="card mt-3" id="standings-section">
+    <div class="card-body">
+      <h6 class="text-uppercase text-secondary fw-semibold mb-3 small">Standings</h6>
+      <table class="table table-hover table-sm mb-0">
+        <thead>
+          <tr>
+            <th style="width:40px">#</th>
+            <th>Name</th>
+            <th style="width:80px">Points</th>
+            <th style="width:80px">Status</th>
+          </tr>
+        </thead>
+        <tbody id="standings-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="appModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title" id="appModalTitle"></h5>
+      </div>
+      <div class="modal-body pt-2 text-secondary" id="appModalBody"></div>
+      <div class="modal-footer border-0 pt-0">
+        <button class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const S = {
+  firstFile: null,
+  lastFile: null,
+  combinedNames: [],
+  people: {},
+  activePeople: [],
+  rounds: [],
+  MAX_ROUNDS: 3,
+  MAX_PEOPLE: 36,
+  MIN_PEOPLE: 8,
+};
+
+let bsModal;
+function showModal(title, body) {
+  document.getElementById('appModalTitle').textContent = title;
+  document.getElementById('appModalBody').innerHTML = body;
+  if (!bsModal) bsModal = new bootstrap.Modal(document.getElementById('appModal'));
+  bsModal.show();
+}
+
+async function invertImageBlob(file) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.width;
+      c.height = img.height;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const d = ctx.getImageData(0, 0, c.width, c.height);
+      for (let i = 0; i < d.data.length; i += 4) {
+        d.data[i]   = 255 - d.data[i];
+        d.data[i+1] = 255 - d.data[i+1];
+        d.data[i+2] = 255 - d.data[i+2];
+      }
+      ctx.putImageData(d, 0, 0);
+      URL.revokeObjectURL(url);
+      c.toBlob(resolve);
+    };
+    img.src = url;
+  });
+}
+
+async function runOCR(file, headerKeyword) {
+  const blob = await invertImageBlob(file);
+  const { data: { text } } = await Tesseract.recognize(blob, 'eng');
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  let start = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].toUpperCase().replace(/\s+/g, ' ').includes(headerKeyword.toUpperCase())) {
+      start = i + 1;
+      break;
+    }
+  }
+  return lines.slice(start).filter(l => l.length > 1 && !/^\d+$/.test(l));
+}
+
+let pasteTarget = null;
+let pasteTimeout = null;
+
+document.addEventListener('paste', (e) => {
+  if (!pasteTarget) return;
+  const items = Array.from(e.clipboardData?.items || []);
+  const imgItem = items.find(i => i.type.startsWith('image/'));
+  if (imgItem) {
+    e.preventDefault();
+    applyFileToSlot(imgItem.getAsFile(), pasteTarget);
+    clearPasteMode();
+  }
+});
+
+async function triggerPaste(type) {
+  if (navigator.clipboard?.read) {
+    try {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const imgType = item.types.find(t => t.startsWith('image/'));
+        if (imgType) {
+          const blob = await item.getType(imgType);
+          applyFileToSlot(new File([blob], 'paste.png', { type: imgType }), type);
+          return;
+        }
+      }
+      showModal('No Image Found', 'No image was found in the clipboard. Copy a screenshot first, then try again.');
+      return;
+    } catch {}
+  }
+  activatePasteMode(type);
+}
+
+function activatePasteMode(type) {
+  pasteTarget = type;
+  clearTimeout(pasteTimeout);
+  const btn = document.getElementById(`${type}-paste-btn`);
+  btn.textContent = 'Press Ctrl+V now...';
+  btn.classList.add('btn-warning');
+  btn.classList.remove('btn-secondary');
+  pasteTimeout = setTimeout(() => { if (pasteTarget === type) clearPasteMode(); }, 8000);
+}
+
+function clearPasteMode() {
+  if (!pasteTarget) return;
+  const type = pasteTarget;
+  pasteTarget = null;
+  clearTimeout(pasteTimeout);
+  const btn = document.getElementById(`${type}-paste-btn`);
+  if (btn) {
+    btn.textContent = 'Paste Image';
+    btn.classList.remove('btn-warning');
+    btn.classList.add('btn-secondary');
+  }
+}
+
+function applyFileToSlot(file, type) {
+  if (type === 'first') S.firstFile = file;
+  else S.lastFile = file;
+
+  const preview   = document.getElementById(`${type}-preview`);
+  const dropZone  = document.getElementById(`${type}-drop`);
+  const dropLabel = document.getElementById(`${type}-drop-label`);
+
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = 'block';
+  dropZone.style.borderColor = '#666';
+  dropLabel.textContent = 'Image loaded - click to replace';
+
+  document.getElementById(`${type}-process-btn`).disabled = false;
+  const status = document.getElementById(`${type}-status`);
+  status.textContent = 'Image ready - click Process to extract names';
+  status.className = 'small text-secondary mb-1';
+
+  checkCombineBtn();
+  clearPasteMode();
+}
+
+function wireUpload(type, headerKeyword) {
+  const fileInput  = document.getElementById(`${type}-file`);
+  const processBtn = document.getElementById(`${type}-process-btn`);
+  const status     = document.getElementById(`${type}-status`);
+  const textarea   = document.getElementById(`${type}-textarea`);
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (file) applyFileToSlot(file, type);
+  });
+
+  processBtn.addEventListener('click', async () => {
+    const file = type === 'first' ? S.firstFile : S.lastFile;
+    if (!file) return;
+    processBtn.disabled = true;
+    status.textContent = 'Processing...';
+    status.className = 'small text-secondary mb-1';
+    try {
+      const names = await runOCR(file, headerKeyword);
+      textarea.value = names.join('\n');
+      status.textContent = `Found ${names.length} name${names.length !== 1 ? 's' : ''}`;
+      status.className = 'small text-white mb-1';
+    } catch (err) {
+      console.error(err);
+      status.textContent = 'Error - try again or edit the list manually.';
+      status.className = 'small text-secondary mb-1';
+    } finally {
+      processBtn.disabled = false;
+      checkCombineBtn();
+    }
+  });
+
+  textarea.addEventListener('input', checkCombineBtn);
+}
+
+wireUpload('first', 'FIRST NAME');
+wireUpload('last',  'LAST NAME');
+
+function groupSizes(n) {
+  if (n <= 0) return [];
+  if (n <= 4) return [n];
+  const q = Math.floor(n / 4);
+  const r = n % 4;
+  if (r === 1 && q < 2) {
+    const sizes = [];
+    let rem = n;
+    while (rem > 0) {
+      if (rem >= 4)       { sizes.push(4); rem -= 4; }
+      else if (rem !== 2) { sizes.push(3); rem -= 3; }
+      else                { sizes.push(2); rem -= 2; }
+    }
+    return sizes;
+  }
+  let f, t;
+  if      (r === 0)           { f = q;     t = 0; }
+  else if (r === 1)           { f = q - 2; t = 3; }
+  else if (r === 2 && q >= 1) { f = q - 1; t = 2; }
+  else if (r === 2)           { f = 0;     t = 0; }
+  else                        { f = q;     t = 1; }
+  const sizes = [];
+  for (let i = 0; i < f; i++) sizes.push(4);
+  for (let i = 0; i < t; i++) sizes.push(3);
+  return sizes;
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildGroups(people) {
+  const tiers = {};
+  people.forEach(name => {
+    const pts = S.people[name]?.points ?? 0;
+    if (!tiers[pts]) tiers[pts] = [];
+    tiers[pts].push(name);
+  });
+  const sorted = Object.keys(tiers).map(Number).sort((a, b) => b - a).flatMap(pts => shuffle(tiers[pts]));
+  const sizes = groupSizes(sorted.length);
+  const groups = [];
+  let idx = 0;
+  for (const sz of sizes) { groups.push(sorted.slice(idx, idx + sz)); idx += sz; }
+  return groups;
+}
+
+function renderStandings() {
+  const tbody = document.getElementById('standings-body');
+  const sorted = Object.entries(S.people)
+    .map(([name, d]) => ({ name, ...d }))
+    .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+  tbody.innerHTML = sorted.map((p, i) => {
+    const r  = i + 1;
+    const rc = r === 1 ? 'text-warning fw-bold' : r === 2 ? 'text-secondary fw-bold' : r === 3 ? 'rank-bronze' : '';
+    return `<tr>
+      <td class="${rc}">${r}</td>
+      <td>${p.name}</td>
+      <td><strong>${p.points}</strong></td>
+      <td class="${p.active ? 's-active' : 's-out'}">${p.active ? '✓' : '↩'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderMatchCards(ri) {
+  const round      = S.rounds[ri];
+  const matchesRow = document.getElementById(`matches-row-${ri}`);
+  matchesRow.innerHTML = '';
+
+  round.groups.forEach((group, mi) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.minWidth = '185px';
+
+    const body = document.createElement('div');
+    body.className = 'card-body p-3';
+
+    const lbl = document.createElement('div');
+    lbl.className = 'text-uppercase text-secondary fw-semibold mb-2';
+    lbl.style.fontSize = '0.7rem';
+    lbl.textContent = `Match ${mi + 1}`;
+    body.appendChild(lbl);
+
+    group.forEach(name => {
+      const row = document.createElement('div');
+      row.className = 'd-flex align-items-center gap-2 mb-1';
+
+      const pts = document.createElement('div');
+      pts.className = 'text-secondary';
+      pts.style.cssText = 'font-size:0.75rem;width:22px;text-align:right;flex-shrink:0;';
+      pts.textContent = S.people[name]?.points ?? 0;
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'flex-grow-1 text-truncate';
+      nameEl.style.fontSize = '0.9rem';
+      nameEl.textContent = name;
+      nameEl.title = name;
+
+      const inp = document.createElement('input');
+      inp.type = 'number';
+      inp.className = 'form-control form-control-sm pl-input';
+      inp.min = -1;
+      inp.max = group.length;
+      inp.placeholder = `1-${group.length}`;
+
+      inp.addEventListener('input', () => {
+        const raw = inp.value.trim();
+        const v   = raw === '' ? undefined : parseInt(raw, 10);
+        round.placements[name] = v;
+        inp.classList.remove('border-light', 'border-secondary', 'text-secondary');
+        if (v !== undefined && !isNaN(v)) {
+          if (v === -1)                         inp.classList.add('border-secondary', 'text-secondary');
+          else if (v >= 1 && v <= group.length) inp.classList.add('border-light');
+        }
+        checkRoundReady(ri);
+      });
+
+      row.appendChild(pts);
+      row.appendChild(nameEl);
+      row.appendChild(inp);
+      body.appendChild(row);
+    });
+
+    card.appendChild(body);
+    matchesRow.appendChild(card);
+  });
+
+  const btn = document.getElementById(`round-btn-${ri}`);
+  if (btn) btn.disabled = true;
+}
+
+function checkRoundReady(ri) {
+  const round = S.rounds[ri];
+  if (round.locked) return;
+  for (const group of round.groups) {
+    for (const name of group) {
+      const v = round.placements[name];
+      if (v === undefined || v === null || v === '') return;
+    }
+  }
+  const btn = document.getElementById(`round-btn-${ri}`);
+  if (btn) btn.disabled = false;
+}
+
+function regenerateRound(ri) {
+  const round = S.rounds[ri];
+  if (round.locked) return;
+  const hasEntries = Object.values(round.placements).some(v => v !== undefined);
+  if (hasEntries && !confirm('This will clear all entered placements. Regenerate anyway?')) return;
+  round.placements = {};
+  round.groups     = buildGroups(S.activePeople);
+  renderMatchCards(ri);
+  const hint = document.getElementById(`round-hint-${ri}`);
+  if (hint) hint.classList.remove('d-none');
+}
+
+function finalizeRound(ri) {
+  const round = S.rounds[ri];
+  round.locked = true;
+
+  document.getElementById(`round-${ri}`).querySelectorAll('.pl-input').forEach(inp => { inp.disabled = true; });
+
+  const regenBtn = document.getElementById(`regen-btn-${ri}`);
+  if (regenBtn) regenBtn.classList.add('d-none');
+
+  const finalBtn = document.getElementById(`round-btn-${ri}`);
+  if (finalBtn) finalBtn.disabled = true;
+
+  round.groups.forEach(group => {
+    group.forEach(name => {
+      const v = round.placements[name];
+      if (v === -1)      S.people[name].active = false;
+      else if (v >= 1)   S.people[name].points += Math.max(0, 5 - v);
+    });
+  });
+
+  S.activePeople = S.activePeople.filter(n => S.people[n].active);
+  renderStandings();
+
+  const isLast = ri === S.MAX_ROUNDS - 1;
+  if (isLast || S.activePeople.length === 0) {
+    const actionsEl = document.getElementById(`round-actions-${ri}`);
+    actionsEl.innerHTML = `<span class="text-secondary small">${S.activePeople.length === 0 ? 'All players eliminated.' : 'Tournament complete!'} See standings below.</span>`;
+    showModal('Tournament Complete', 'All rounds are done. Check the final standings!');
+  } else {
+    generateRound();
+  }
+}
+
+function generateRound() {
+  const ri = S.rounds.length;
+  if (S.activePeople.length < 2) {
+    showModal('Not Enough Players', 'Not enough active players to continue.');
+    return;
+  }
+
+  const groups = buildGroups(S.activePeople);
+  const round  = { groups, placements: {}, locked: false };
+  S.rounds.push(round);
+
+  const isLast    = ri === S.MAX_ROUNDS - 1;
+  const container = document.getElementById('rounds-container');
+
+  const block = document.createElement('div');
+  block.className = 'card mb-3';
+  block.id = `round-${ri}`;
+
+  const cardBody = document.createElement('div');
+  cardBody.className = 'card-body';
+
+  const header = document.createElement('div');
+  header.className = 'd-flex align-items-center gap-2 mb-3 pb-2 border-bottom';
+  header.innerHTML = `<span class="fw-bold">Round ${ri + 1}</span><span class="text-secondary small">${S.activePeople.length} players - balanced by points</span>`;
+  cardBody.appendChild(header);
+
+  const matchesRow = document.createElement('div');
+  matchesRow.className = 'd-flex flex-wrap gap-3 mb-3';
+  matchesRow.id = `matches-row-${ri}`;
+  cardBody.appendChild(matchesRow);
+
+  const actionsEl = document.createElement('div');
+  actionsEl.className = 'd-flex align-items-center gap-2 flex-wrap';
+  actionsEl.id = `round-actions-${ri}`;
+
+  const finalBtn = document.createElement('button');
+  finalBtn.className = 'btn btn-success btn-sm';
+  finalBtn.id = `round-btn-${ri}`;
+  finalBtn.disabled = true;
+  finalBtn.textContent = isLast ? 'Finalize Tournament' : `Generate Round ${ri + 2}`;
+  finalBtn.addEventListener('click', () => finalizeRound(ri));
+
+  const regenBtn = document.createElement('button');
+  regenBtn.className = 'btn btn-sm';
+  regenBtn.style.cssText = 'background:#0d7377;color:#ccfffe;border:none;';
+  regenBtn.id = `regen-btn-${ri}`;
+  regenBtn.textContent = 'Regenerate';
+  regenBtn.addEventListener('click', () => regenerateRound(ri));
+
+  const hint = document.createElement('span');
+  hint.className = 'text-secondary small';
+  hint.id = `round-hint-${ri}`;
+  hint.textContent = 'Fill all placement boxes to enable';
+
+  actionsEl.appendChild(finalBtn);
+  actionsEl.appendChild(regenBtn);
+  actionsEl.appendChild(hint);
+  cardBody.appendChild(actionsEl);
+  block.appendChild(cardBody);
+  container.appendChild(block);
+
+  new MutationObserver(() => {
+    hint.style.display = finalBtn.disabled ? '' : 'none';
+  }).observe(finalBtn, { attributes: true, attributeFilter: ['disabled'] });
+
+  renderMatchCards(ri);
+
+  document.getElementById('tournament-section').classList.remove('d-none');
+  setTimeout(() => block.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+}
+
+function getLines(id) {
+  return document.getElementById(id).value.split('\n').map(l => l.trim()).filter(Boolean);
+}
+
+function checkCombineBtn() {
+  const f = getLines('first-textarea');
+  const l = getLines('last-textarea');
+  document.getElementById('combine-btn').disabled = f.length === 0 && l.length === 0;
+}
+
+document.getElementById('combine-btn').addEventListener('click', () => {
+  const fNames = getLines('first-textarea');
+  const lNames = getLines('last-textarea');
+  const maxLen = Math.max(fNames.length, lNames.length);
+
+  if (fNames.length !== lNames.length) {
+    const diff   = Math.abs(fNames.length - lNames.length);
+    const longer = fNames.length > lNames.length ? 'first' : 'last';
+    showModal(
+      'Name Count Mismatch',
+      `First names: ${fNames.length} - Last names: ${lNames.length}.<br>${diff} name${diff !== 1 ? 's' : ''} from the longer <strong>${longer} name</strong> list will appear without a matching ${longer === 'first' ? 'last' : 'first'} name.`
+    );
+  }
+
+  const combined = [];
+  for (let i = 0; i < maxLen; i++) {
+    const first = (fNames[i] || '').trim();
+    const last  = (lNames[i] || '').trim();
+    const full  = [first, last].filter(Boolean).join(' ');
+    if (full) combined.push({ name: full, partial: !first || !last });
+  }
+
+  const capped = combined.slice(0, S.MAX_PEOPLE);
+  S.combinedNames = capped.map(e => e.name);
+
+  const display = document.getElementById('combined-names-display');
+  display.innerHTML = capped.map(e =>
+    `<span class="badge ${e.partial ? 'bg-secondary border border-secondary' : 'bg-secondary'}" title="${e.partial ? 'Missing first or last name' : ''}">${e.name}</span>`
+  ).join('');
+
+  document.getElementById('combine-badge').textContent =
+    `${capped.length} player${capped.length !== 1 ? 's' : ''}` +
+    (combined.length > S.MAX_PEOPLE ? ` (capped at ${S.MAX_PEOPLE})` : '');
+
+  document.getElementById('start-btn').classList.remove('d-none');
+});
+
+document.getElementById('start-btn').addEventListener('click', () => {
+  if (S.combinedNames.length < S.MIN_PEOPLE) {
+    showModal('Not Enough Players', `At least ${S.MIN_PEOPLE} players are needed to start. You currently have ${S.combinedNames.length}.`);
+    return;
+  }
+
+  S.combinedNames.forEach(name => { S.people[name] = { points: 0, active: true }; });
+  S.activePeople = [...S.combinedNames];
+
+  document.getElementById('start-btn').disabled = true;
+  document.getElementById('combine-btn').disabled = true;
+
+  renderStandings();
+  generateRound();
+});
+</script>
+</body>
+</html>
